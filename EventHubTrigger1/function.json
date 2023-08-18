@@ -1,0 +1,30 @@
+{
+  "scriptFile": "__init__.py",
+  "bindings": [
+    {
+      "type": "eventHubTrigger",
+      "name": "events",
+      "direction": "in",
+      "eventHubName": "dfs-aass-dp-nprd-eh-01",
+      "connection": "DFSAASSDPNPRDEHN01_policy_EVENTHUB",
+      "cardinality": "many",
+      "consumerGroup": "$Default"
+    },
+    {
+      "type": "cosmosDB",
+      "direction": "out",
+      "name": "doc",
+      "databaseName": "ToDoList",
+      "collectionName": "Items",
+      "createIfNotExists": "true",
+      "connectionStringSetting": "AzureCosmosDBConnectionString"
+    },
+    {
+      "type": "eventHub",
+      "name": "$return",
+      "direction": "out",
+      "eventHubName": "dfs-aass-dp-nprd-eh-02",
+      "connection": "DFSAASSDPNPRDEHN02_policy_EVENTHUB"
+    }
+  ]
+}
