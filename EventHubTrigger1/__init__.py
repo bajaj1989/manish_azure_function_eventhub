@@ -25,11 +25,13 @@ def main(events: func.EventHubEvent, doc: func.Out[func.Document]) -> str:
         event_body=event.get_body().decode('utf-8')
         log.info('Python EventHub trigger processed an xml event: %s',
                     event_body)
-        
-        doc.set(func.Document.from_json(event_body))
+        json_event=xmltodict.parse(event_body)
+        log.info('Converted the incoming xml event to json : %s',
+                    json_event)
+        doc.set(func.Document.from_dict(json_event))
         log.info('Sent record to cosmos DB')
         #url='http://sgesbisapp.dfs.com:5555/Inventory/SellingLocation?Division=58&Store=451&Register=632&SKU=18299120&Indicator=R&FromSellingLocation=451'
         #response = requests.post(url)
         #log.info(response.status_code)
-        return event_body
+        return json.dumps(json_event)
 

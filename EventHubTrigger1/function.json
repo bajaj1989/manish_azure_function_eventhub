@@ -8,7 +8,8 @@
       "eventHubName": "dfs-aass-dp-nprd-eh-01",
       "connection": "DFSAASSDPNPRDEHN01_policy_EVENTHUB",
       "cardinality": "many",
-      "consumerGroup": "$Default"
+      "consumerGroup": "$Default",
+      "dataType": "string"
     },
     {
       "type": "cosmosDB",
