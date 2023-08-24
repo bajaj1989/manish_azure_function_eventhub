@@ -3,12 +3,6 @@
   "extensions": {
     "eventHubs": {
         "maxEventBatchSize" : 400
-    },
-    "applicationInsights": {
-        "sampling": {
-          "isEnabled": true,
-          "maxTelemetryItemsPerSecond" : 5
-        }
     }
 },
 "logging": {

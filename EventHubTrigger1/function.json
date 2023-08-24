@@ -16,8 +16,7 @@
       "direction": "out",
       "name": "doc",
       "databaseName": "ToDoList",
-      "collectionName": "Items",
-      "createIfNotExists": "true",
+      "collectionName": "sales_pos_events",
       "connectionStringSetting": "AzureCosmosDBConnectionString"
     },
     {
