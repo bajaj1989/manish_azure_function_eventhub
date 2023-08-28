@@ -1,0 +1,24 @@
+{
+  "scriptFile": "__init__.py",
+  "bindings": [
+    {
+      "type": "eventHubTrigger",
+      "name": "events",
+      "direction": "in",
+      "eventHubName": "dfs-aass-dp-nprd-mcseh-01",
+      "connection": "DFSAASSDPNPRDEHN01_mcs_policy_EVENTHUB",
+      "cardinality": "many",
+      "consumerGroup": "$Default",
+      "dataType": "string"
+    },
+    {
+      "type": "cosmosDB",
+      "direction": "out",
+      "name": "doc",
+      "databaseName": "ToDoList",
+      "collectionName": "mcs_events",
+      "connectionStringSetting": "AzureCosmosDBConnectionString"
+    }
+  ]
+}
+

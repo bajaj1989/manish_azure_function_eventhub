@@ -25,5 +25,4 @@ def main(events: func.EventHubEvent):
         event_body=event.get_body().decode('utf-8')
         log.info('Python EventHub trigger processed an event: %s',
                     event_body)
-        
 
