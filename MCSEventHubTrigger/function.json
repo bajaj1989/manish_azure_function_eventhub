@@ -10,14 +10,6 @@
       "cardinality": "many",
       "consumerGroup": "$Default",
       "dataType": "string"
-    },
-    {
-      "type": "cosmosDB",
-      "direction": "out",
-      "name": "doc",
-      "databaseName": "ToDoList",
-      "collectionName": "mcs_events",
-      "connectionStringSetting": "AzureCosmosDBConnectionString"
     }
   ]
 }

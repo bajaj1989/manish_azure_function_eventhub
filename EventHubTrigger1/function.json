@@ -12,14 +12,6 @@
       "dataType": "string"
     },
     {
-      "type": "cosmosDB",
-      "direction": "out",
-      "name": "doc",
-      "databaseName": "ToDoList",
-      "collectionName": "sales_pos_events",
-      "connectionStringSetting": "AzureCosmosDBConnectionString"
-    },
-    {
       "type": "eventHub",
       "name": "$return",
       "direction": "out",
