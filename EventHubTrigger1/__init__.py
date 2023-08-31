@@ -60,7 +60,7 @@ def main(events: func.EventHubEvent) -> str:
         indicator = 'R'
         fromSellingLocation = json_obj['Header']['lTransactionTypeID'].lower()
         selling_location_url=' http://sgesbisapp.dfs.com:5555/Inventory/SellingLocation?Division={division}&Store={store}&Register={register}&SKU={sku}&Indicator={indicator}&FromSellingLocation={fromSellingLocation}'
-        #url='https://dfs-aass-dp-nprd-functionapp-01.azurewebsites.net/api/HttpTrigger1?code=4ggfLfpjG4jSKVn39BecqjXV6kKXW6S_b1-CnuAJkLnQAzFuCa-kAw==&name=Manish'
+        url='https://dfs-aass-dp-nprd-functionapp-01.azurewebsites.net/api/HttpTrigger1?code=4ggfLfpjG4jSKVn39BecqjXV6kKXW6S_b1-CnuAJkLnQAzFuCa-kAw==&name=Manish'
         
         insert_query='insert into sales_pos_events (CSKU_ID, RSKU_ID, division,Selling_Location_ID, Retail_Store_ID, is_eod_completed, updated_at, sold_quantity, dh_txn_nmbr, event_details) values '
         #sales_sku_dict_list=[]
@@ -72,7 +72,7 @@ def main(events: func.EventHubEvent) -> str:
             sold_qty= item['dTaQty']
             log.info(selling_location_url.format(division=division, store=store,register=register,
                             indicator=indicator,fromSellingLocation=fromSellingLocation,sku=rsku_id))
-            mcs_sales_location=callInvisibilityApi(selling_location_url)
+            mcs_sales_location=callInvisibilityApi(url)
             sales_sku_dict['Header'] = json_obj['Header']
             sales_sku_dict['Payments'] = json_obj['Payments']
             sales_sku_dict['Deposit'] = json_obj['Deposit']

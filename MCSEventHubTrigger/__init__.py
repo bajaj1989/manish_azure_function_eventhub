@@ -18,6 +18,8 @@ logging.basicConfig(level=logging.DEBUG,
 log = logging.getLogger(__name__)
 log.info("Logging Info")
 log.debug("Logging Debug")
+timestamp_format='\'YYYY-MM-DD HH24:MI:SS\''
+timestamp_format_milli='\'YYYY-MM-DD HH24:MI:SS.US\''
 
 def executeCosmosPostgres(queries):
     try:
@@ -40,7 +42,7 @@ def executeCosmosPostgres(queries):
             conn.close()    
 
 
-def getMergeQuery(json_obj):
+def getMergeQuery(json_obj,enqueue_timestamp):
     merge_query='''merge into mcs_events E
         using (select {select_columns}) T
         on E.csku_id = T.csku_id 
@@ -73,35 +75,36 @@ def getMergeQuery(json_obj):
         alias_column_name_list.append(alias_column)
         set_columns_list.append(set_column)
     select_columns = ','.join(select_columns_list)
-    select_columns = select_columns +',to_timestamp({updated_at},\'YYYY-MM-DD HH:MI:SS\') as updated_at, to_timestamp({eod_completed_at},\'YYYY-MM-DD HH:MI:SS\') as eod_completed_at'
+    select_columns = select_columns +',to_timestamp({updated_at},{timestamp_format}) as updated_at, to_timestamp({eod_completed_at},{timestamp_format}) as eod_completed_at,to_timestamp(\'{enqueue_timestamp}\',{timestamp_format_milli}) as enqueue_timestamp'
 
     column_names = ','.join(column_names_list)
-    column_names=column_names+',updated_at,eod_completed_at'
+    column_names=column_names+',updated_at,eod_completed_at,enqueue_timestamp'
 
     alias_column_name = ','.join(alias_column_name_list)
-    alias_column_name  =alias_column_name+',T.updated_at,T.eod_completed_at'
+    alias_column_name  =alias_column_name+',T.updated_at,T.eod_completed_at,T.enqueue_timestamp'
 
     set_columns = ','.join(set_columns_list)
-    set_columns = set_columns+',updated_at = T.updated_at, eod_completed_at = T.eod_completed_at'
+    set_columns = set_columns+',updated_at = T.updated_at, eod_completed_at = T.eod_completed_at,enqueue_timestamp =T.enqueue_timestamp'
 
     updated_at_str = datetime.strftime(datetime.strptime(json_obj['MCS_Inventory_Date']+json_obj['MCS_Inventory_Time'],'%d-%m-%Y%H:%M:%S'),'%Y-%m-%d %H:%M:%S')
     updated_at = '\''+updated_at_str+'\''
     if json_obj['MCS_Inventory_Type'].lower() in 'eod':
-        select_columns = select_columns.format(updated_at=updated_at, eod_completed_at=updated_at)
+        select_columns = select_columns.format(timestamp_format_milli=timestamp_format_milli,timestamp_format =timestamp_format,updated_at=updated_at, eod_completed_at=updated_at, enqueue_timestamp=enqueue_timestamp)
     else:
-        select_columns = select_columns.format(updated_at=updated_at, eod_completed_at='null')
+        select_columns = select_columns.format(timestamp_format_milli=timestamp_format_milli,timestamp_format =timestamp_format,updated_at=updated_at, eod_completed_at='null',enqueue_timestamp=enqueue_timestamp)
 
     merge_query = merge_query.format(select_columns=select_columns,column_names=column_names,alias_column_name=alias_column_name,set_columns=set_columns)
     return merge_query
 
 def main(events: func.EventHubEvent):
     for event in events:
+        enqueue_timestamp = event.enqueued_time
         json_event=event.get_body().decode('utf-8')
         log.info('Python EventHub trigger processed an json event: %s',
                     json_event)
         json_obj = json.loads(json_event)
         queries=[]
-        queries.append(getMergeQuery(json_obj))
+        queries.append(getMergeQuery(json_obj,enqueue_timestamp))
         executeCosmosPostgres(queries)
 
 
