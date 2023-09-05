@@ -5,8 +5,8 @@
       "type": "eventHubTrigger",
       "name": "events",
       "direction": "in",
-      "eventHubName": "dfs-aass-dp-nprd-mcseh-01",
-      "connection": "DFSAASSDPNPRDEHN01_mcs_policy_EVENTHUB",
+      "eventHubName": "dfs-aass-dp-nprd-mcseh-02",
+      "connection": "DFSAASSDPNPRDEHN01_mcs02_policy_EVENTHUB",
       "cardinality": "many",
       "consumerGroup": "$Default",
       "dataType": "string"

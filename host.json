@@ -2,7 +2,9 @@
   "version": "2.0",
   "extensions": {
     "eventHubs": {
-        "maxEventBatchSize" : 10
+        "maxEventBatchSize" : 1000,
+        "minEventBatchSize" : 500,
+        "maxWaitTime" : "00:00:00.5"
     }
 },
 "logging": {
