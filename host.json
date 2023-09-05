@@ -2,14 +2,15 @@
   "version": "2.0",
   "extensions": {
     "eventHubs": {
-        "maxEventBatchSize" : 10
+        "maxEventBatchSize": 500,
+        "minEventBatchSize": 500,
+        "maxWaitTime": "00:00:01"
     }
 },
 "logging": {
   "applicationInsights": {
     "samplingSettings": {
-      "isEnabled": true,
-      "excludedTypes": "Request"
+      "isEnabled": false
     }
   }
 },
