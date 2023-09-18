@@ -1681,9 +1681,9 @@ def main(events: func.EventHubEvent) -> str:
         json_obj = json.loads(flattened_json)
 
         column_values = []
+        mcs_location=''
 
         values = {}
-        salesDapDict={}
         values['division'] = json_obj['Header']['szExternalID']
         values['retail_store_id'] = json_obj['Header']['lRetailStoreID']
         values['ta_type'] = json_obj['Header']['szTaType']
@@ -1747,7 +1747,6 @@ def main(events: func.EventHubEvent) -> str:
             selling_location_url = 'http://10.176.92.70:5555/Inventory/SellingLocation?Division={division}&Store={store}&Register={register}&SKU={sku}&Indicator={indicator}&FromSellingLocation={fromSellingLocation}'
             #test_url = 'https://dfs-aass-dp-nprd-functionapp-01.azurewebsites.net/api/HttpTrigger1?code=4ggfLfpjG4jSKVn39BecqjXV6kKXW6S_b1-CnuAJkLnQAzFuCa-kAw==&name=Manish'
 
-            sales_sku_dict_list = []
             if len(json_obj['LineItems']) > 0:
                 for item in json_obj['LineItems']:
                     sales_sku_dict = {}
@@ -1761,7 +1760,9 @@ def main(events: func.EventHubEvent) -> str:
                                                          fromSellingLocation=values['fromSellingLocation'],
                                                          sku=values['rsku_id'])
                     log.info('mcs selling locatiom url %s',selling_location_url)
-                    values['selling_location_id'] = callInvisibilityApi(selling_location_url)
+                    mcs_location = callInvisibilityApi(selling_location_url)
+                    values['selling_location_id'] = mcs_location
+                    item['selling_location_id'] = mcs_location
 
                     sales_sku_dict['Header'] = json_obj['Header']
                     sales_sku_dict['Payments'] = json_obj['Payments']
@@ -1795,9 +1796,9 @@ def main(events: func.EventHubEvent) -> str:
                             column_values.append(AsIs('null'))
 
                     # log.info('output json: %s', json.dumps(sales_sku_dict))
-                    sales_sku_dict_list.append(sales_sku_dict)
+                    #sales_sku_dict_list.append(sales_sku_dict)
                     all_values.append(column_values)
-                return_values = sales_sku_dict_list
+                return_values = json_obj
 
         if len(cust_lookup_column_values) > 0:
             all_customer_lookup_values.append(cust_lookup_column_values)
