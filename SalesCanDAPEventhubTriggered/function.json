@@ -8,7 +8,7 @@
       "eventHubName": "dfs-aass-dp-nprd-eh-02",
       "connection": "DFSAASSDPNPRDEHN02_policy_EVENTHUB",
       "cardinality": "many",
-      "consumerGroup": "$Default"
+      "consumerGroup": "salesdap"
     }
   ]
 }
