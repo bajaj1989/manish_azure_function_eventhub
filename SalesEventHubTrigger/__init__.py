@@ -1,20 +1,16 @@
 import logging
-
 import azure.functions as func
-import azure.cosmos.documents as documents
-import azure.cosmos.cosmos_client as cosmos_client
-import azure.cosmos.exceptions as exceptions
-from azure.cosmos.partition_key import PartitionKey
 import json
 from datetime import datetime
 import requests
-import xmltodict
 import psycopg2
 import psycopg2.extras
 from psycopg2.extensions import AsIs
 from collections import OrderedDict
 import hashlib
 from lxml import etree
+from shared_code import config
+import os
 
 logging.basicConfig(level=logging.DEBUG,
     format='%(asctime)s.%(msecs)03d %(levelname)s:\t%(message)s',
@@ -26,9 +22,11 @@ log.debug("Logging Debug")
 
 timestamp_format='\'YYYY-MM-DD HH24:MI:SS\''
 timestamp_format_milli='\'YYYY-MM-DD HH24:MI:SS.US\''
-custLookupColumns=['customer_id','division','loyalty_member_id','pax_nmbr','passport_nmbr']
+custLookupColumns=['customer_id','division','enr_division','loyalty_member_id','pax_nmbr','passport_nmbr']
 
 conn =None
+
+#took as is from datahub
 def segregate(raw_sales_event):
     data = json.loads(raw_sales_event)
     data_backup = json.loads(raw_sales_event)
@@ -510,7 +508,7 @@ def segregate(raw_sales_event):
     #print(json.dumps(data))
     return data
 
-
+#took as is from datahub
 def flatten(segregated_json):
     data = segregated_json
     splits = []
@@ -1559,7 +1557,7 @@ def flatten(segregated_json):
 
 def callInvisibilityApi(url):
     try:
-        response=requests.get(url)
+        response=requests.get(url,timeout=0.5)
         log.info(response.status_code)
         table = etree.HTML(response.content).find("body/table")
         rows = iter(table)
@@ -1569,26 +1567,25 @@ def callInvisibilityApi(url):
         return mcs_location
     except Exception as e:
         log.error(e)
-        raise
+        return ''
 
 
 def getPostgresConn():
     try:
         conn = psycopg2.connect(
-        host="c-dfs-aass-dp-nprd-cosmospostgres-01.wwvvotg4x7fdz4.postgres.cosmos.azure.com",
-        database="ToDo",
-        user="citus",
-        password="Admin@1234")
+        host=config.postgresSqlConn['host'],
+        database=config.postgresSqlConn['database'],
+        user=config.postgresSqlConn['user'],
+        password=os.environ['postgres_password'])
         return conn
     except (Exception, psycopg2.DatabaseError) as error:
         log.error(error)
+        raise
 
 
 def enrichCustomerId(params,conn):
     log.info('Inside Enrich customer id')
-    americaDivision ={'11':'114147', '41':'114147', '47':'114147'} #11- HAWAI, 41- North America, 47- MIAMI
-    if params['division'] in americaDivision.keys():
-        params['division'] = americaDivision[params['division']]
+    
     getCustLookupQuery = '''select distinct customer_id from customer_lookup {lookupWhereClause}'''
     getCustIdQuery = '''select distinct customer_id from customer_lookup {strWhereClause}'''
     
@@ -1602,10 +1599,14 @@ def enrichCustomerId(params,conn):
         clause = k+' = \''+v+'\''
         custIdHash = custIdHash+v
         if k == 'division':
+            #andWhereClause.append(clause)
+            continue
+        elif k == 'enr_division':
             andWhereClause.append(clause)
+            andLookupWhereClause.append(clause)
         else:
             orWhereClause.append(clause)
-        andLookupWhereClause.append(clause)
+            andLookupWhereClause.append(clause)
 
     strWhereClause=''
     lookupWhereClause=''
@@ -1638,7 +1639,7 @@ def enrichCustomerId(params,conn):
             else:
                 column_values.append(AsIs('null'))
     else:
-        custId = customerIdList[0]
+        custId = customerIdList[0][0]
         cur.execute(getCustLookupQuery)
         customerIdLookupList = cur.fetchall()
         if len(customerIdLookupList) == 0:
@@ -1655,21 +1656,12 @@ def enrichCustomerId(params,conn):
 
 def main(events: func.EventHubEvent) -> str:
     return_values = []
-    all_values = []
     all_customer_lookup_values = []
-    sales_columns = ['csku_id', 'rsku_id', 'division', 'selling_location_id', 'retail_store_id'
-        , 'sold_quantity', 'dh_txn_nmbr', 'ta_type', 'src_updated_at', 'enqueue_timestamp', 'db_updated_at',
-                     'event_details']
-    insert_query = '''insert into sales_pos_events 
-        (''' + ','.join(sales_columns) + ''') values %s '''
-    acceptable_ta_type = ['SA', 'RR', 'RT', 'VR', 'Sales', 'ReturnWithReceipt', 'Return', 'ManualInvoiceReturn',
-                          'ManualInvoiceSale']
-    non_ta_columns = ['division', 'retail_store_id', 'src_updated_at', 'enqueue_timestamp', 'db_updated_at', 'dh_txn_nmbr', 'ta_type', 'event_details']
+    acceptable_ta_type = config.acceptable_ta_type
     insertCustQuery = '''insert into customer_lookup 
         (''' + ','.join(custLookupColumns) + ''') values %s '''
     conn = getPostgresConn()
     for event in events:
-        enqueued_time = event.enqueued_time
         raw_json_event=event.get_body().decode('utf-8')
         #log.info('Python EventHub trigger processed an json event: %s',raw_json_event)
         
@@ -1678,23 +1670,26 @@ def main(events: func.EventHubEvent) -> str:
         flattened_json = flatten(segregated_json)
         #log.info('Canonical format json: %s', flattened_json)
         # convert into canonical end
-        json_obj = json.loads(flattened_json)
 
-        column_values = []
-        mcs_location=''
+        json_obj = json.loads(flattened_json)
 
         values = {}
         values['division'] = json_obj['Header']['szExternalID']
         values['retail_store_id'] = json_obj['Header']['lRetailStoreID']
         values['ta_type'] = json_obj['Header']['szTaType']
-        values['src_updated_at'] = datetime.strftime(datetime.strptime(json_obj['Header']['szDate'], '%Y%m%d%H%M%S'),
+        values['transaction_date'] = datetime.strftime(datetime.strptime(json_obj['Header']['szDate'], '%Y%m%d%H%M%S'),
                                                  '%Y-%m-%d %H:%M:%S')
         values['dh_txn_nmbr'] = json_obj['Header']['dh_txn_nmbr']
 
         # customer lookup starts
         cust_lookup_column_values = []
         custId = ''
+        americaDivision = config.americaDivision
         custLookupParams = {}
+        if values['division'] in americaDivision.keys():
+            custLookupParams['enr_division'] = americaDivision[values['division']]
+        else:
+            custLookupParams['enr_division'] = values['division']
         custLookupParams['division'] = values['division']
         custLookupParams['loyalty_member_id'] = json_obj['Header']['szLoyaltyMemberID']
         custLookupParams['pax_nmbr'] = json_obj['Header']['szPaxNmbr']
@@ -1713,33 +1708,7 @@ def main(events: func.EventHubEvent) -> str:
         # customer lookup ends
 
         json_obj['Header']['customer_id'] = custId
-        if values['ta_type'] not in acceptable_ta_type:
-            for column in sales_columns:
-                if column not in non_ta_columns:
-                    column_values.append(AsIs('null'))
-                elif column == 'event_details':
-                    column_values.append(json.dumps(json_obj))
-                elif column == 'enqueue_timestamp':
-                    column_values.append(AsIs('to_timestamp(\'{enqueue_timestamp}\',{timestamp_format_milli})'.
-                                              format(enqueue_timestamp=enqueued_time,
-                                                     timestamp_format_milli=timestamp_format_milli)))
-                elif column == 'db_updated_at':
-                    current_timestamp =str(datetime.now())
-                    #print(current_timestamp)
-                    column_values.append(AsIs(
-                        'to_timestamp(\'{db_updated_at}\',{timestamp_format_milli})'.format(db_updated_at=current_timestamp,
-                                                                                   timestamp_format_milli=timestamp_format_milli)))
-                elif column == 'src_updated_at':
-                    column_values.append(AsIs(
-                        'to_timestamp(\'{updated_at}\',{timestamp_format})'.format(updated_at=values['src_updated_at'],
-                                                                                   timestamp_format=timestamp_format)))
-
-                else:
-                    column_values.append(values[column])
-            return_values.append(flattened_json)
-            all_values.append(column_values)
-
-        else:
+        if values['ta_type'] in acceptable_ta_type:
             values['register'] = json_obj['Header']['lWorkstationNmbr']
             values['indicator'] = 'R'
             values['fromSellingLocation'] = json_obj['Header']['lTransactionTypeID']
@@ -1749,68 +1718,37 @@ def main(events: func.EventHubEvent) -> str:
 
             if len(json_obj['LineItems']) > 0:
                 for item in json_obj['LineItems']:
-                    sales_sku_dict = {}
-                    column_values = []
                     values['rsku_id'] = item['szPOSItemID']
                     values['csku_id'] = item['szCommonItemID']
                     values['sold_quantity'] = item['dTaQty']
-                    selling_location_url = selling_location_url.format(division=values['division'], store=values['retail_store_id'],
-                                                         register=values['register'],
-                                                         indicator=values['indicator'],
-                                                         fromSellingLocation=values['fromSellingLocation'],
+                    mcs_location =''
+                    if (values['division'] and values['division'].strip()) \
+                    or  (values['retail_store_id'] and values['retail_store_id'].strip()) \
+                    or  (values['register'] and values['register'].strip()) \
+                    or  (values['indicator'] and values['indicator'].strip()) \
+                    or  (values['fromSellingLocation'] and values['fromSellingLocation'].strip()) \
+                    or  (values['rsku_id'] and values['rsku_id'].strip()):
+                        selling_location_url = selling_location_url.format(division=values['division'], 
+                                                                       store=values['retail_store_id'],
+                                                                        register=values['register'],
+                                                                        indicator=values['indicator'],
+                                                                        fromSellingLocation=values['fromSellingLocation'],
                                                          sku=values['rsku_id'])
-                    log.info('mcs selling locatiom url %s',selling_location_url)
-                    mcs_location = callInvisibilityApi(selling_location_url)
+                        log.info('mcs selling locatiom url:: %s',selling_location_url)
+                        mcs_location = callInvisibilityApi(selling_location_url)
                     values['selling_location_id'] = mcs_location
                     item['selling_location_id'] = mcs_location
-
-                    sales_sku_dict['Header'] = json_obj['Header']
-                    sales_sku_dict['Payments'] = json_obj['Payments']
-                    sales_sku_dict['Deposit'] = json_obj['Deposit']
-                    sales_sku_dict['LineItem'] = item
-                    sales_sku_dict['Header']['mcs_sales_location'] = values['selling_location_id']
-
-                    for column in sales_columns:
-                        if column == 'event_details':
-                            column_values.append(AsIs('\''+json.dumps(sales_sku_dict)+'\''))
-                        elif column == 'enqueue_timestamp':
-                            column_values.append(AsIs('to_timestamp(\'{enqueue_timestamp}\',{timestamp_format_milli})'.
-                                                      format(enqueue_timestamp=enqueued_time,
-                                                             timestamp_format_milli=timestamp_format_milli)))
-                        elif column == 'db_updated_at':
-                            current_timestamp = str(datetime.now())
-                            #print(current_timestamp)
-                            column_values.append(AsIs(
-                                'to_timestamp(\'{db_updated_at}\',{timestamp_format_milli})'.format(
-                                    db_updated_at=current_timestamp,
-                                    timestamp_format_milli=timestamp_format_milli)))
-                        elif column == 'src_updated_at':
-                            column_values.append(AsIs(
-                                'to_timestamp(\'{updated_at}\',{timestamp_format})'.format(
-                                    updated_at=values['src_updated_at'],
-                                    timestamp_format=timestamp_format)))
-
-                        elif values[column] is not None and values[column].strip() != '':
-                            column_values.append(values[column])
-                        else:
-                            column_values.append(AsIs('null'))
-
-                    # log.info('output json: %s', json.dumps(sales_sku_dict))
-                    #sales_sku_dict_list.append(sales_sku_dict)
-                    all_values.append(column_values)
-                return_values = json_obj
-
+        return_values.append(json_obj)
         if len(cust_lookup_column_values) > 0:
             all_customer_lookup_values.append(cust_lookup_column_values)
 
-    cur = conn.cursor()
-    psycopg2.extras.execute_values(cur, insert_query, all_values)
     if len(all_customer_lookup_values) > 0:
+        cur = conn.cursor()
         psycopg2.extras.execute_values(cur, insertCustQuery, all_customer_lookup_values)
+    
     conn.commit()
     conn.close()
 
-    log.info('Sent record to cosmos DB')
     return json.dumps(return_values)
 
 

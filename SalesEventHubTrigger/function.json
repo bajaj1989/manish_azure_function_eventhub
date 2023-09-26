@@ -5,8 +5,8 @@
       "type": "eventHubTrigger",
       "name": "events",
       "direction": "in",
-      "eventHubName": "dfs-aass-dp-nprd-eh-01",
-      "connection": "DFSAASSDPNPRDEHN01_policy_EVENTHUB",
+      "eventHubName": "dfs-aass-dp-nprd-ehpossales-01",
+      "connection": "eventhub_ehn01_ehpossales_01",
       "cardinality": "many",
       "consumerGroup": "$Default",
       "dataType": "string"
@@ -15,8 +15,8 @@
       "type": "eventHub",
       "name": "$return",
       "direction": "out",
-      "eventHubName": "dfs-aass-dp-nprd-eh-02",
-      "connection": "DFSAASSDPNPRDEHN02_policy_EVENTHUB"
+      "eventHubName": "dfs-aass-dp-nprd-ehpossalescantemp-01",
+      "connection": "eventhub_ehn01_ehpossalescantemp_01"
     }
   ]
 }

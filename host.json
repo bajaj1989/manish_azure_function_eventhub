@@ -2,9 +2,13 @@
   "version": "2.0",
   "extensions": {
     "eventHubs": {
-        "maxEventBatchSize" : 1000,
-        "minEventBatchSize" : 500,
-        "maxWaitTime" : "00:00:00.5"
+        "maxEventBatchSize" : 100,
+        "minEventBatchSize" : 50,
+        "maxWaitTime" : "00:00:00.5",
+        "initialOffsetOptions" : {
+          "type" : "fromEnd",
+          "enqueuedTimeUtc" : ""
+      }
     }
 },
 "logging": {

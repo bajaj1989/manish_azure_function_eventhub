@@ -5,17 +5,17 @@
       "type": "eventHubTrigger",
       "name": "events",
       "direction": "in",
-      "eventHubName": "dfs-aass-dp-nprd-ehpossalescan-01",
-      "connection": "eventhub_ehn01_ehpossalescan_01",
+      "eventHubName": "dfs-aass-dp-nprd-ehpossalescantemp-01",
+      "connection": "eventhub_ehn01_ehpossalescantemp_01",
       "cardinality": "many",
       "consumerGroup": "$Default"
     },
     {
       "type": "eventHub",
-      "name": "dapEventhub",
+      "name": "$return",
       "direction": "out",
-      "eventHubName": "dfs-aass-dp-nprd-salesdap-01",
-      "connection": "eventhub_ehn01_ehpossalesdap_01"
+      "eventHubName": "dfs-aass-dp-nprd-ehpossalescan-01",
+      "connection": "eventhub_ehn01_ehpossalescan_01"
     }
   ]
 }

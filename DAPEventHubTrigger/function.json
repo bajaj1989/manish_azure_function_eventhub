@@ -5,12 +5,10 @@
       "type": "eventHubTrigger",
       "name": "events",
       "direction": "in",
-      "eventHubName": "dfs-aass-dp-nprd-ehmcs-01",
-      "connection": "eventhub_ehn01_ehmcs_01",
+      "eventHubName": "dfs-aass-dp-nprd-salesdap-01",
+      "connection": "eventhub_ehn01_ehpossalesdap_01",
       "cardinality": "many",
-      "consumerGroup": "$Default",
-      "dataType": "string"
+      "consumerGroup": "data_platform"
     }
   ]
 }
-
